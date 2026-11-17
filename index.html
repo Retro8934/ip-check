@@ -195,6 +195,7 @@ const D = {
     "Bientôt, il ne sera plus possible d’ouvrir ce site depuis Windows 7 : l’accès sera bloqué comme c’est déjà le cas sous Windows XP et Vista. Windows 7 ne reçoit plus de mises à jour de sécurité depuis longtemps. Pour garder l’accès, passez à Windows 10 ou plus récent, macOS, Linux, Android ou iOS.",
     "不久之后将无法在 Windows 7 上访问本网站,就像现在在 Windows XP 和 Vista 上一样。Windows 7 早已不再获得安全更新。为继续访问,请改用 Windows 10 及以上、macOS、Linux、Android 或 iOS。"
   ],
+  win1011:["10 или 11 (браузер не различает)","10 or 11 (the browser can't tell)","10 u 11 (el navegador no lo distingue)","10 oder 11 (Browser kann nicht unterscheiden)","10 ou 11 (le navigateur ne distingue pas)","10 或 11(浏览器无法区分)"],
   close:["Закрыть","Close","Cerrar","Schließen","Fermer","关闭"],
   blockedTitle:["Доступ закрыт","Access denied","Acceso denegado","Zugriff verweigert","Accès refusé","禁止访问"],
   blockedText:[
@@ -329,16 +330,36 @@ function browserName(ua){
   return '?';
 }
 
+function osName(){
+  const n = navigator, ua = n.userAgent;
+  const name = hi.platform || (n.userAgentData && n.userAgentData.platform) || '';
+  const pv = hi.platformVersion || '';
+  const nt = ua.match(/Windows NT (\d+\.\d+)/);
+  if(nt || name === 'Windows'){
+    const v = nt ? nt[1] : '';
+    if(v === '10.0' || !v){
+      /* Windows 10 и 11 в User-Agent одинаковы (NT 10.0): различает только platformVersion */
+      if(pv) return 'Windows ' + (parseInt(pv) >= 13 ? '11' : '10');
+      return 'Windows ' + t('win1011');
+    }
+    const map = {'5.1':'XP','5.2':'XP / Server 2003','6.0':'Vista','6.1':'7','6.2':'8','6.3':'8.1'};
+    return 'Windows ' + (map[v] || v);
+  }
+  if(name) return name + (pv ? ' ' + pv : '');
+  if(/Android/.test(ua)) return 'Android';
+  if(/iPhone|iPad|iPod/.test(ua)) return 'iOS';
+  if(/Mac OS X/.test(ua)) return 'macOS';
+  if(/Linux/.test(ua)) return 'Linux';
+  return n.platform;
+}
+
 function renderDevice(){
   const n = navigator, ua = n.userAgent;
-  const platform = hi.platform || (n.userAgentData && n.userAgentData.platform) || n.platform;
   const isMobile = n.userAgentData ? n.userAgentData.mobile : /Mobi|Android|iPhone/i.test(ua);
-  let osv = hi.platformVersion || '';
-  if(platform === 'Windows' && osv) osv = parseInt(osv) >= 13 ? '11+' : '10';
   const c = n.connection || n.mozConnection || n.webkitConnection;
   fill($('dev'), [
     [t('dtype'), isMobile ? t('mobile') : t('desktop')],
-    [t('os'), platform + (osv ? ' ' + osv : '')],
+    [t('os'), osName()],
     [t('arch'), hi.architecture ? hi.architecture + (hi.bitness ? ', ' + hi.bitness + ' ' + t('bit') : '') : ''],
     [t('model'), hi.model],
     [t('cpu'), n.hardwareConcurrency ? n.hardwareConcurrency + ' ' + t('cores') : ''],
