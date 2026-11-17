@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Мой IP, провайдер и устройство</title>
+<style>
+:root{
+  --bg:#eef2f4; --panel:#ffffff; --ink:#14232b; --muted:#5d6f78; --line:#d5dee3;
+  --accent:#0b6e7f; --accent-ink:#ffffff; --err:#b3372b;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0f1a1f; --panel:#16252c; --ink:#e4eef2; --muted:#8fa5af; --line:#263941;
+    --accent:#4fc3d6; --accent-ink:#06222a; --err:#f08577;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;padding:16px 16px 48px}
+main,.bar{max-width:860px;margin:0 auto}
+.bar{display:flex;justify-content:flex-end;margin-bottom:8px}
+select{font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+select:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+h1{font-size:1.6rem;margin:0 0 4px;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 24px}
+.hero{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;margin-bottom:20px}
+.ip{font:600 clamp(1.6rem,6vw,2.6rem)/1.15 ui-monospace,"Cascadia Mono",Consolas,monospace;word-break:break-all;margin:6px 0 4px}
+.isp{font-size:1.15rem;color:var(--accent);font-weight:600}
+.row-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+button{font:inherit;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);padding:8px 16px;border-radius:8px;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent)}
+h2{font-size:1.1rem;margin:28px 0 10px}
+dl{display:grid;grid-template-columns:minmax(120px,220px) 1fr;margin:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+dt,dd{margin:0;padding:10px 16px;border-bottom:1px solid var(--line)}
+dt{color:var(--muted)}
+dd{word-break:break-word}
+dt:last-of-type,dd:last-of-type{border-bottom:0}
+.err{color:var(--err)}
+.status{color:var(--muted);font-size:.95rem}
+#blocked{display:none;max-width:520px;margin:10vh auto 0;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;text-align:center}
+#blocked h1{color:var(--err)}
+html[data-blocked] #blocked{display:block}
+html[data-blocked] main{display:none}
+.w7{display:none;max-width:860px;margin:0 auto 12px;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--accent);border-left-width:6px;border-radius:10px;padding:10px 16px}
+.w7 span{flex:1 1 240px}
+.w7 button{padding:6px 14px}
+html[data-win7] .w7{display:flex}
+html[data-blocked] .w7{display:none}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal.open{display:flex}
+.modal .box{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:14px;max-width:480px;width:100%;padding:24px}
+.modal h2{margin:0 0 10px}
+.modal p{margin:0 0 18px}
+@media (max-width:520px){
+  dl{grid-template-columns:1fr}
+  dt{border-bottom:0;padding-bottom:0;font-size:.9rem}
+}
+</style>
+<script>
+/* ES5 на случай очень старых браузеров. XP = NT 5.1/5.2, Vista = NT 6.0 */
+(function(){
+  var ua = navigator.userAgent || '';
+  if (/Windows NT (5\.1|5\.2|6\.0)/.test(ua)) {
+    window.__blocked = true;
+    document.documentElement.setAttribute('data-blocked', '1');
+  } else if (/Windows NT 6\.1/.test(ua)) {
+    /* Windows 7 = NT 6.1 */
+    window.__win7 = true;
+    document.documentElement.setAttribute('data-win7', '1');
+  }
+})();
+</script>
+</head>
+<body>
+<div class="w7" role="status">
+  <span data-i18n="w7Notice"></span>
+  <button id="w7more" data-i18n="w7More"></button>
+</div>
+
+<div class="modal" id="w7modal" role="dialog" aria-modal="true" aria-labelledby="w7t">
+  <div class="box">
+    <h2 id="w7t" data-i18n="w7Title"></h2>
+    <p data-i18n="w7Text"></p>
+    <button id="w7close" data-i18n="close"></button>
+  </div>
+</div>
+
+<div class="bar">
+  <select id="lang" aria-label="Language">
+    <option value="ru">Русский</option>
+    <option value="en">English</option>
+    <option value="es">Español</option>
+    <option value="de">Deutsch</option>
+    <option value="fr">Français</option>
+    <option value="zh">中文</option>
+  </select>
+</div>
+
+<div id="blocked" role="alert">
+  <h1 data-i18n="blockedTitle"></h1>
+  <p data-i18n="blockedText"></p>
+</div>
+
+<main>
+  <h1 data-i18n="title"></h1>
+  <p class="sub" data-i18n="sub"></p>
+
+  <section class="hero" aria-live="polite">
+    <div class="status" data-i18n="yourIp"></div>
+    <div class="ip" id="ip"></div>
+    <div class="isp" id="isp"></div>
+    <div class="row-actions">
+      <button id="copy"></button>
+      <button id="refresh" class="ghost" data-i18n="recheck"></button>
+    </div>
+  </section>
+
+  <h2 data-i18n="netH"></h2>
+  <dl id="net"></dl>
+
+  <h2 data-i18n="devH"></h2>
+  <dl id="dev"></dl>
+</main>
+
+<script>
+/* Порядок языков: ru, en, es, de, fr, zh */
+const LANGS = ['ru','en','es','de','fr','zh'];
+const D = {
+  title:["Мой IP, провайдер и устройство","My IP, provider and device","Mi IP, proveedor y dispositivo","Meine IP, Provider und Gerät","Mon IP, fournisseur et appareil","我的 IP、运营商和设备"],
+  sub:["Данные определяются прямо в вашем браузере.","Everything is detected right in your browser.","Todo se detecta directamente en tu navegador.","Alles wird direkt in Ihrem Browser ermittelt.","Tout est détecté directement dans votre navigateur.","所有信息均在您的浏览器中检测。"],
+  yourIp:["Ваш внешний IP-адрес","Your public IP address","Tu dirección IP pública","Ihre öffentliche IP-Adresse","Votre adresse IP publique","您的公网 IP 地址"],
+  detecting:["определяю…","detecting…","detectando…","wird ermittelt…","détection…","检测中…"],
+  copy:["Скопировать IP","Copy IP","Copiar IP","IP kopieren","Copier l’IP","复制 IP"],
+  copied:["Скопировано","Copied","Copiado","Kopiert","Copié","已复制"],
+  copyFail:["Не удалось скопировать","Copy failed","No se pudo copiar","Kopieren fehlgeschlagen","Échec de la copie","复制失败"],
+  recheck:["Проверить заново","Check again","Comprobar de nuevo","Erneut prüfen","Revérifier","重新检测"],
+  netH:["Сеть и провайдер","Network and provider","Red y proveedor","Netzwerk und Provider","Réseau et fournisseur","网络与运营商"],
+  devH:["Ваше устройство","Your device","Tu dispositivo","Ihr Gerät","Votre appareil","您的设备"],
+  noIsp:["Провайдер не определён","Provider not detected","Proveedor no detectado","Provider nicht erkannt","Fournisseur non détecté","未检测到运营商"],
+  errTitle:["Не удалось определить","Could not detect","No se pudo detectar","Nicht ermittelbar","Détection impossible","无法检测"],
+  errHint:["Проверьте интернет или отключите блокировщик рекламы и откройте файл снова.","Check your connection or disable your ad blocker, then reload.","Revisa tu conexión o desactiva el bloqueador de anuncios y recarga.","Prüfen Sie die Verbindung oder deaktivieren Sie den Werbeblocker und laden Sie neu.","Vérifiez votre connexion ou désactivez le bloqueur de publicités, puis rechargez.","请检查网络或关闭广告拦截器后重新加载。"],
+  ip:["IP-адрес","IP address","Dirección IP","IP-Adresse","Adresse IP","IP 地址"],
+  ver:["Версия","Version","Versión","Version","Version","版本"],
+  isp:["Провайдер","Provider","Proveedor","Provider","Fournisseur","运营商"],
+  org:["Организация","Organization","Organización","Organisation","Organisation","组织"],
+  domain:["Домен","Domain","Dominio","Domain","Domaine","域名"],
+  country:["Страна","Country","País","Land","Pays","国家"],
+  region:["Регион","Region","Región","Region","Région","地区"],
+  city:["Город","City","Ciudad","Stadt","Ville","城市"],
+  ntz:["Часовой пояс сети","Network time zone","Zona horaria de la red","Netzwerk-Zeitzone","Fuseau horaire du réseau","网络时区"],
+  coords:["Координаты (примерно)","Coordinates (approx.)","Coordenadas (aprox.)","Koordinaten (ca.)","Coordonnées (approx.)","坐标(大致)"],
+  dtype:["Тип устройства","Device type","Tipo de dispositivo","Gerätetyp","Type d’appareil","设备类型"],
+  mobile:["Мобильное","Mobile","Móvil","Mobil","Mobile","移动设备"],
+  desktop:["Компьютер","Computer","Ordenador","Computer","Ordinateur","电脑"],
+  os:["Операционная система","Operating system","Sistema operativo","Betriebssystem","Système d’exploitation","操作系统"],
+  arch:["Архитектура","Architecture","Arquitectura","Architektur","Architecture","架构"],
+  bit:["бит","bit","bits","Bit","bits","位"],
+  model:["Модель","Model","Modelo","Modell","Modèle","型号"],
+  cpu:["Процессор","Processor","Procesador","Prozessor","Processeur","处理器"],
+  cores:["логических ядер","logical cores","núcleos lógicos","logische Kerne","cœurs logiques","逻辑核心"],
+  ram:["Оперативная память","Memory (RAM)","Memoria RAM","Arbeitsspeicher","Mémoire vive","内存"],
+  atLeast:["не менее","at least","al menos","mindestens","au moins","至少"],
+  gb:["ГБ","GB","GB","GB","Go","GB"],
+  ramCap:["браузер показывает не больше 8","browser caps it at 8","el navegador lo limita a 8","Browser zeigt max. 8","le navigateur plafonne à 8","浏览器最多显示 8"],
+  ramNo:["браузер не сообщает","not reported by the browser","el navegador no lo indica","vom Browser nicht gemeldet","non fourni par le navigateur","浏览器未提供"],
+  gpu:["Видеокарта","Graphics card","Tarjeta gráfica","Grafikkarte","Carte graphique","显卡"],
+  screen:["Экран","Screen","Pantalla","Bildschirm","Écran","屏幕"],
+  colorBits:["бит цвета","bit color","bits de color","Bit Farbtiefe","bits de couleur","位色深"],
+  dpr:["Плотность пикселей","Pixel ratio","Densidad de píxeles","Pixeldichte","Densité de pixels","像素比"],
+  win:["Окно браузера","Browser window","Ventana del navegador","Browserfenster","Fenêtre du navigateur","浏览器窗口"],
+  touch:["Сенсорный ввод","Touch input","Entrada táctil","Touch-Eingabe","Écran tactile","触控"],
+  touchYes:["да, касаний:","yes, touch points:","sí, puntos:","ja, Berührungspunkte:","oui, points :","支持,触点数:"],
+  no:["нет","no","no","nein","non","无"],
+  browser:["Браузер","Browser","Navegador","Browser","Navigateur","浏览器"],
+  lang:["Язык","Language","Idioma","Sprache","Langue","语言"],
+  dtz:["Часовой пояс устройства","Device time zone","Zona horaria del dispositivo","Geräte-Zeitzone","Fuseau horaire de l’appareil","设备时区"],
+  conn:["Тип соединения","Connection type","Tipo de conexión","Verbindungstyp","Type de connexion","连接类型"],
+  speed:["Скорость (оценка)","Speed (estimate)","Velocidad (estimada)","Geschwindigkeit (Schätzung)","Débit (estimation)","速度(估算)"],
+  mbps:["Мбит/с","Mbps","Mbps","Mbit/s","Mbit/s","Mbps"],
+  lat:["Задержка (оценка)","Latency (estimate)","Latencia (estimada)","Latenz (Schätzung)","Latence (estimation)","延迟(估算)"],
+  ms:["мс","ms","ms","ms","ms","毫秒"],
+  battery:["Батарея","Battery","Batería","Akku","Batterie","电池"],
+  charging:["заряжается","charging","cargando","lädt","en charge","充电中"],
+  on:["включены","enabled","activadas","aktiviert","activés","已启用"],
+  off:["выключены","disabled","desactivadas","deaktiviert","désactivés","已禁用"],
+  w7Notice:["Скоро поддержка Windows 7 на этом сайте будет прекращена.","Support for Windows 7 on this site will end soon.","Pronto terminará la compatibilidad de este sitio con Windows 7.","Die Unterstützung von Windows 7 auf dieser Seite endet bald.","La prise en charge de Windows 7 sur ce site prendra bientôt fin.","本网站即将停止支持 Windows 7。"],
+  w7More:["Подробнее","Learn more","Más información","Mehr erfahren","En savoir plus","了解详情"],
+  w7Title:["Поддержка Windows 7 заканчивается","Windows 7 support is ending","La compatibilidad con Windows 7 termina","Windows-7-Unterstützung endet","La prise en charge de Windows 7 se termine","Windows 7 支持即将结束"],
+  w7Text:[
+    "Скоро зайти на сайт с Windows 7 будет невозможно: он будет закрываться так же, как сейчас в Windows XP и Vista. Windows 7 давно не получает обновлений безопасности. Чтобы не потерять доступ, перейдите на Windows 10 или новее, macOS, Linux, Android или iOS.",
+    "Soon it will no longer be possible to open this site from Windows 7: access will be blocked just as it is now for Windows XP and Vista. Windows 7 stopped receiving security updates long ago. To keep your access, switch to Windows 10 or newer, macOS, Linux, Android or iOS.",
+    "Pronto no será posible entrar en este sitio desde Windows 7: se bloqueará igual que ahora en Windows XP y Vista. Windows 7 hace tiempo que no recibe actualizaciones de seguridad. Para no perder el acceso, cambia a Windows 10 o posterior, macOS, Linux, Android o iOS.",
+    "Bald ist ein Zugriff auf diese Seite unter Windows 7 nicht mehr möglich: Sie wird dort genauso gesperrt wie jetzt unter Windows XP und Vista. Windows 7 erhält schon lange keine Sicherheitsupdates mehr. Wechseln Sie zu Windows 10 oder neuer, macOS, Linux, Android oder iOS, um weiter Zugriff zu haben.",
+    "Bientôt, il ne sera plus possible d’ouvrir ce site depuis Windows 7 : l’accès sera bloqué comme c’est déjà le cas sous Windows XP et Vista. Windows 7 ne reçoit plus de mises à jour de sécurité depuis longtemps. Pour garder l’accès, passez à Windows 10 ou plus récent, macOS, Linux, Android ou iOS.",
+    "不久之后将无法在 Windows 7 上访问本网站,就像现在在 Windows XP 和 Vista 上一样。Windows 7 早已不再获得安全更新。为继续访问,请改用 Windows 10 及以上、macOS、Linux、Android 或 iOS。"
+  ],
+  close:["Закрыть","Close","Cerrar","Schließen","Fermer","关闭"],
+  blockedTitle:["Доступ закрыт","Access denied","Acceso denegado","Zugriff verweigert","Accès refusé","禁止访问"],
+  blockedText:[
+    "Эта страница не поддерживает Windows XP и Windows Vista. Эти системы давно не получают обновлений безопасности. Откройте сайт на Windows 10 и новее, macOS, Linux, Android или iOS.",
+    "This page does not support Windows XP or Windows Vista. These systems no longer receive security updates. Please open it on Windows 10 or newer, macOS, Linux, Android or iOS.",
+    "Esta página no es compatible con Windows XP ni Windows Vista. Estos sistemas ya no reciben actualizaciones de seguridad. Ábrela en Windows 10 o posterior, macOS, Linux, Android o iOS.",
+    "Diese Seite unterstützt Windows XP und Windows Vista nicht. Diese Systeme erhalten keine Sicherheitsupdates mehr. Öffnen Sie sie unter Windows 10 oder neuer, macOS, Linux, Android oder iOS.",
+    "Cette page ne prend pas en charge Windows XP ni Windows Vista. Ces systèmes ne reçoivent plus de mises à jour de sécurité. Ouvrez-la sous Windows 10 ou plus récent, macOS, Linux, Android ou iOS.",
+    "本页面不支持 Windows XP 和 Windows Vista。这些系统已不再获得安全更新。请在 Windows 10 及以上、macOS、Linux、Android 或 iOS 上打开。"
+  ]
+};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- язык: выбор сохраняется в localStorage ---------- */
+let cur = 'ru';
+const t = k => D[k][LANGS.indexOf(cur)];
+
+function loadSavedLang(){
+  try{
+    const s = localStorage.getItem('site-lang');
+    if(LANGS.indexOf(s) >= 0) return s;
+  }catch(e){}
+  const b = (navigator.language || '').slice(0,2).toLowerCase();
+  return LANGS.indexOf(b) >= 0 ? b : 'ru';
+}
+
+function applyStatic(){
+  document.documentElement.lang = cur;
+  document.title = t('title');
+  $('lang').value = cur;
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
+  $('copy').textContent = t('copy');
+}
+
+function setLang(l){
+  cur = l;
+  try{ localStorage.setItem('site-lang', l); }catch(e){}
+  applyStatic();
+  renderNet();
+  renderDevice();
+}
+
+/* ---------- таблицы ---------- */
+function fill(el, rows){
+  el.innerHTML = rows.filter(r => r[1] !== undefined && r[1] !== null && r[1] !== '')
+    .map(([k,v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
+}
+
+async function getJSON(url){
+  const r = await fetch(url, {cache:'no-store'});
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+/* ---------- сеть ---------- */
+let net = {state:'loading', d:null};
+
+function renderNet(){
+  if(net.state === 'loading'){
+    $('ip').textContent = t('detecting'); $('isp').textContent = ''; $('net').innerHTML = '';
+    return;
+  }
+  if(net.state === 'err'){
+    $('ip').innerHTML = '<span class="err">' + esc(t('errTitle')) + '</span>';
+    $('isp').textContent = t('errHint'); $('net').innerHTML = '';
+    return;
+  }
+  const d = net.d;
+  $('ip').textContent = d.ip;
+  $('isp').textContent = d.isp || t('noIsp');
+  fill($('net'), [
+    [t('ip'), d.ip],
+    [t('ver'), d.ip.indexOf(':') >= 0 ? 'IPv6' : 'IPv4'],
+    [t('isp'), d.isp],
+    [t('org'), d.org !== d.isp ? d.org : ''],
+    ['ASN', d.asn ? 'AS' + String(d.asn).replace(/^AS/i,'') : ''],
+    [t('domain'), d.domain],
+    [t('country'), d.country],
+    [t('region'), d.region],
+    [t('city'), d.city],
+    [t('ntz'), d.tz],
+    [t('coords'), d.lat !== undefined ? d.lat + ', ' + d.lon : '']
+  ]);
+}
+
+async function loadNet(){
+  net = {state:'loading', d:null}; renderNet();
+  let d = null;
+  try {
+    const j = await getJSON('https://ipwho.is/');
+    if(j.success === false) throw new Error(j.message || 'error');
+    const c = j.connection || {};
+    d = {ip:j.ip, isp:c.isp || c.org, org:c.org, asn:c.asn, domain:c.domain,
+         country:j.country, region:j.region, city:j.city, tz:j.timezone && j.timezone.id,
+         lat:j.latitude, lon:j.longitude};
+  } catch(e1){
+    try {
+      const j = await getJSON('https://ipapi.co/json/');
+      if(j.error) throw new Error(j.reason || 'error');
+      d = {ip:j.ip, isp:j.org, org:j.org, asn:j.asn, country:j.country_name,
+           region:j.region, city:j.city, tz:j.timezone, lat:j.latitude, lon:j.longitude};
+    } catch(e2){
+      try { d = {ip:(await getJSON('https://api64.ipify.org?format=json')).ip}; }
+      catch(e3){ net = {state:'err', d:null}; renderNet(); return; }
+    }
+  }
+  net = {state:'ok', d}; renderNet();
+}
+
+/* ---------- устройство ---------- */
+let hi = {}, batt = null;
+
+function gpu(){
+  try{
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+    if(!gl) return '';
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+  }catch(e){ return ''; }
+}
+
+function browserName(ua){
+  if(/Edg\//.test(ua)) return 'Microsoft Edge';
+  if(/OPR\//.test(ua)) return 'Opera';
+  if(/YaBrowser/.test(ua)) return 'Yandex Browser';
+  if(/Firefox\//.test(ua)) return 'Firefox';
+  if(/Chrome\//.test(ua)) return 'Chrome / Chromium';
+  if(/Safari\//.test(ua)) return 'Safari';
+  return '?';
+}
+
+function renderDevice(){
+  const n = navigator, ua = n.userAgent;
+  const platform = hi.platform || (n.userAgentData && n.userAgentData.platform) || n.platform;
+  const isMobile = n.userAgentData ? n.userAgentData.mobile : /Mobi|Android|iPhone/i.test(ua);
+  let osv = hi.platformVersion || '';
+  if(platform === 'Windows' && osv) osv = parseInt(osv) >= 13 ? '11+' : '10';
+  const c = n.connection || n.mozConnection || n.webkitConnection;
+  fill($('dev'), [
+    [t('dtype'), isMobile ? t('mobile') : t('desktop')],
+    [t('os'), platform + (osv ? ' ' + osv : '')],
+    [t('arch'), hi.architecture ? hi.architecture + (hi.bitness ? ', ' + hi.bitness + ' ' + t('bit') : '') : ''],
+    [t('model'), hi.model],
+    [t('cpu'), n.hardwareConcurrency ? n.hardwareConcurrency + ' ' + t('cores') : ''],
+    [t('ram'), n.deviceMemory ? t('atLeast') + ' ' + n.deviceMemory + ' ' + t('gb') + ' (' + t('ramCap') + ')' : t('ramNo')],
+    [t('gpu'), gpu()],
+    [t('screen'), screen.width + '×' + screen.height + ', ' + screen.colorDepth + ' ' + t('colorBits')],
+    [t('dpr'), window.devicePixelRatio],
+    [t('win'), innerWidth + '×' + innerHeight],
+    [t('touch'), n.maxTouchPoints ? t('touchYes') + ' ' + n.maxTouchPoints : t('no')],
+    [t('browser'), browserName(ua) + (hi.uaFullVersion ? ' ' + hi.uaFullVersion : '')],
+    [t('lang'), n.languages ? n.languages.join(', ') : n.language],
+    [t('dtz'), Intl.DateTimeFormat().resolvedOptions().timeZone],
+    [t('conn'), c && c.effectiveType],
+    [t('speed'), c && c.downlink ? c.downlink + ' ' + t('mbps') : ''],
+    [t('lat'), c && c.rtt !== undefined ? c.rtt + ' ' + t('ms') : ''],
+    [t('battery'), batt ? Math.round(batt.level*100) + '%' + (batt.charging ? ', ' + t('charging') : '') : ''],
+    ['Cookies', n.cookieEnabled ? t('on') : t('off')],
+    ['User-Agent', ua]
+  ]);
+}
+
+async function loadDevice(){
+  renderDevice();
+  const n = navigator;
+  if(n.userAgentData && n.userAgentData.getHighEntropyValues){
+    try{ hi = await n.userAgentData.getHighEntropyValues(['platform','platformVersion','architecture','bitness','model','uaFullVersion']); }catch(e){}
+  }
+  if(n.getBattery){ try{ batt = await n.getBattery(); }catch(e){} }
+  renderDevice();
+}
+
+/* ---------- запуск ---------- */
+$('lang').onchange = e => setLang(e.target.value);
+$('copy').onclick = async () => {
+  try{ await navigator.clipboard.writeText($('ip').textContent); $('copy').textContent = t('copied'); }
+  catch(e){ $('copy').textContent = t('copyFail'); }
+  setTimeout(() => $('copy').textContent = t('copy'), 1500);
+};
+$('refresh').onclick = loadNet;
+
+const modal = $('w7modal');
+const openW7 = () => { modal.classList.add('open'); $('w7close').focus(); };
+const closeW7 = () => { modal.classList.remove('open'); $('w7more').focus(); };
+$('w7more').onclick = openW7;
+$('w7close').onclick = closeW7;
+modal.onclick = e => { if(e.target === modal) closeW7(); };
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && modal.classList.contains('open')) closeW7(); });
+
+cur = loadSavedLang();
+applyStatic();
+if (!window.__blocked) {
+  loadNet();
+  loadDevice();
+}
+</script>
+</body>
+</html>
