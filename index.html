@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Мой IP, провайдер и устройство</title>
 <style>
+body{background:#eef2f4;color:#14232b}
+.hero,dl,.w7,#blocked,.modal .box{background:#fff;border:1px solid #d5dee3}
+.isp{color:#0b6e7f}
+button{background:#0b6e7f;color:#fff;border:1px solid #0b6e7f}
+.err,#blocked h1{color:#b3372b}
 :root{
   --bg:#eef2f4; --panel:#ffffff; --ink:#14232b; --muted:#5d6f78; --line:#d5dee3;
   --accent:#0b6e7f; --accent-ink:#ffffff; --err:#b3372b;
@@ -47,9 +52,9 @@ html[data-blocked] main{display:none}
 .w7 button{padding:6px 14px}
 html[data-win7] .w7{display:flex}
 html[data-blocked] .w7{display:none}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
 .modal.open{display:flex}
-.modal .box{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:14px;max-width:480px;width:100%;padding:24px}
+.modal .box{margin:0 auto;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:14px;max-width:480px;width:100%;padding:24px}
 .modal h2{margin:0 0 10px}
 .modal p{margin:0 0 18px}
 @media (max-width:520px){
@@ -58,22 +63,26 @@ html[data-blocked] .w7{display:none}
 }
 </style>
 <script>
-/* ES5 на случай очень старых браузеров. XP = NT 5.1/5.2, Vista = NT 6.0 */
+/* ES3-совместимо (IE 4+). XP = NT 5.1/5.2, Vista = NT 6.0, Windows 7 = NT 6.1 */
 (function(){
   var ua = navigator.userAgent || '';
+  var tags = ['main','section'], i;
+  for (i = 0; i < tags.length; i++) { if (document.createElement) document.createElement(tags[i]); }
+  function attr(n){
+    if (document.documentElement && document.documentElement.setAttribute) document.documentElement.setAttribute(n, '1');
+  }
   if (/Windows NT (5\.1|5\.2|6\.0)/.test(ua)) {
     window.__blocked = true;
-    document.documentElement.setAttribute('data-blocked', '1');
+    attr('data-blocked');
   } else if (/Windows NT 6\.1/.test(ua)) {
-    /* Windows 7 = NT 6.1 */
     window.__win7 = true;
-    document.documentElement.setAttribute('data-win7', '1');
+    attr('data-win7');
   }
 })();
 </script>
 </head>
 <body>
-<div class="w7" role="status">
+<div class="w7" id="w7box" role="status">
   <span data-i18n="w7Notice"></span>
   <button id="w7more" data-i18n="w7More"></button>
 </div>
@@ -86,7 +95,7 @@ html[data-blocked] .w7{display:none}
   </div>
 </div>
 
-<div class="bar">
+<div class="bar" id="bar">
   <select id="lang" aria-label="Language">
     <option value="ru">Русский</option>
     <option value="en">English</option>
@@ -102,7 +111,7 @@ html[data-blocked] .w7{display:none}
   <p data-i18n="blockedText"></p>
 </div>
 
-<main>
+<main id="app">
   <h1 data-i18n="title"></h1>
   <p class="sub" data-i18n="sub"></p>
 
@@ -110,7 +119,7 @@ html[data-blocked] .w7{display:none}
     <div class="status" data-i18n="yourIp"></div>
     <div class="ip" id="ip"></div>
     <div class="isp" id="isp"></div>
-    <div class="row-actions">
+    <div class="row-actions" id="actions">
       <button id="copy"></button>
       <button id="refresh" class="ghost" data-i18n="recheck"></button>
     </div>
@@ -123,7 +132,7 @@ html[data-blocked] .w7{display:none}
   <dl id="dev"></dl>
 </main>
 
-<script>
+<script type="module">
 /* Порядок языков: ru, en, es, de, fr, zh */
 const LANGS = ['ru','en','es','de','fr','zh'];
 const D = {
@@ -196,6 +205,18 @@ const D = {
     "不久之后将无法在 Windows 7 上访问本网站,就像现在在 Windows XP 和 Vista 上一样。Windows 7 早已不再获得安全更新。为继续访问,请改用 Windows 10 及以上、macOS、Linux、Android 或 iOS。"
   ],
   win1011:["10 или 11 (браузер не различает)","10 or 11 (the browser can't tell)","10 u 11 (el navegador no lo distingue)","10 oder 11 (Browser kann nicht unterscheiden)","10 ou 11 (le navigateur ne distingue pas)","10 或 11(浏览器无法区分)"],
+  bAge:["Возраст браузера","Browser age","Antigüedad del navegador","Alter des Browsers","Ancienneté du navigateur","浏览器新旧程度"],
+  bNew:["современный","modern","moderno","modern","récent","较新"],
+  bDated:["устаревающий","getting outdated","algo anticuado","veraltend","vieillissant","偏旧"],
+  bOld:["старый","old","antiguo","alt","ancien","过旧"],
+  check:["Проверка ОС и браузера","OS and browser check","Comprobación de SO y navegador","Prüfung von OS und Browser","Vérification OS et navigateur","系统与浏览器检查"],
+  okc:["согласуются","consistent","coherentes","passen zusammen","cohérents","相符"],
+  badc:["расхождение: этот браузер не работает на заявленной Windows, реальная система, скорее всего, новее (Windows 10/11) или User-Agent подменён",
+        "mismatch: this browser cannot run on the Windows version it claims; the real system is most likely newer (Windows 10/11) or the User-Agent is spoofed",
+        "discrepancia: este navegador no funciona en la versión de Windows que indica; el sistema real probablemente es más reciente (Windows 10/11) o el User-Agent está falseado",
+        "Widerspruch: Dieser Browser läuft nicht unter der angegebenen Windows-Version; das echte System ist wahrscheinlich neuer (Windows 10/11) oder der User-Agent ist gefälscht",
+        "incohérence : ce navigateur ne fonctionne pas sur la version de Windows indiquée ; le vrai système est probablement plus récent (Windows 10/11) ou le User-Agent est falsifié",
+        "不一致:该浏览器无法在其声明的 Windows 版本上运行,实际系统很可能更新(Windows 10/11),或 User-Agent 被伪造"],
   close:["Закрыть","Close","Cerrar","Schließen","Fermer","关闭"],
   blockedTitle:["Доступ закрыт","Access denied","Acceso denegado","Zugriff verweigert","Accès refusé","禁止访问"],
   blockedText:[
@@ -320,30 +341,52 @@ function gpu(){
   }catch(e){ return ''; }
 }
 
-function browserName(ua){
-  if(/Edg\//.test(ua)) return 'Microsoft Edge';
-  if(/OPR\//.test(ua)) return 'Opera';
-  if(/YaBrowser/.test(ua)) return 'Yandex Browser';
-  if(/Firefox\//.test(ua)) return 'Firefox';
-  if(/Chrome\//.test(ua)) return 'Chrome / Chromium';
-  if(/Safari\//.test(ua)) return 'Safari';
-  return '?';
+function browserInfo(){
+  const ua = navigator.userAgent;
+  const m = re => { const r = ua.match(re); return r ? parseInt(r[1], 10) : 0; };
+  const eng = m(/Chrome\/(\d+)/);
+  let v;
+  if(v = m(/Edg\/(\d+)/)) return {name:'Microsoft Edge', v, eng, fam:'cr'};
+  if(v = m(/OPR\/(\d+)/)) return {name:'Opera', v, eng, fam:'cr'};
+  if(v = m(/YaBrowser\/(\d+)/)) return {name:'Yandex Browser', v, eng, fam:'cr'};
+  if(v = m(/Firefox\/(\d+)/)) return {name:'Firefox', v, eng:0, fam:'ff'};
+  if(eng) return {name:'Chrome / Chromium', v:eng, eng, fam:'cr'};
+  if(v = m(/Version\/(\d+).*Safari/)) return {name:'Safari', v, eng:0, fam:'sf'};
+  return {name:'?', v:0, eng:0, fam:''};
+}
+
+/* Возраст по версии: Chromium 109 и Firefox 115 ESR - последние для Windows 7/8 */
+function freshness(b){
+  if(b.fam === 'cr') return b.eng < 110 ? 'bOld' : b.eng < 130 ? 'bDated' : 'bNew';
+  if(b.fam === 'ff') return b.v < 116 ? 'bOld' : b.v < 130 ? 'bDated' : 'bNew';
+  if(b.fam === 'sf') return b.v < 15 ? 'bOld' : b.v < 17 ? 'bDated' : 'bNew';
+  return '';
+}
+
+/* Реальная версия Windows: User-Agent может врать, а браузер новее 109 на Windows 7/8 не запустится */
+function winInfo(){
+  const m = navigator.userAgent.match(/Windows NT (\d+\.\d+)/);
+  if(!m && hi.platform !== 'Windows') return null;
+  const b = browserInfo();
+  let nt = m ? m[1] : '10.0', mismatch = false;
+  const pre10 = ['5.1','5.2','6.0','6.1','6.2','6.3'].indexOf(nt) >= 0;
+  const needs10 = (b.fam === 'cr' && b.eng >= 110) || (b.fam === 'ff' && b.v >= 116);
+  if(pre10 && needs10){ nt = '10.0'; mismatch = true; }
+  return {nt, mismatch};
 }
 
 function osName(){
   const n = navigator, ua = n.userAgent;
   const name = hi.platform || (n.userAgentData && n.userAgentData.platform) || '';
   const pv = hi.platformVersion || '';
-  const nt = ua.match(/Windows NT (\d+\.\d+)/);
-  if(nt || name === 'Windows'){
-    const v = nt ? nt[1] : '';
-    if(v === '10.0' || !v){
-      /* Windows 10 и 11 в User-Agent одинаковы (NT 10.0): различает только platformVersion */
-      if(pv) return 'Windows ' + (parseInt(pv) >= 13 ? '11' : '10');
+  const w = winInfo();
+  if(w){
+    if(w.nt === '10.0'){
+      if(pv && pv.indexOf('0.') !== 0) return 'Windows ' + (parseInt(pv, 10) >= 13 ? '11' : '10');
       return 'Windows ' + t('win1011');
     }
     const map = {'5.1':'XP','5.2':'XP / Server 2003','6.0':'Vista','6.1':'7','6.2':'8','6.3':'8.1'};
-    return 'Windows ' + (map[v] || v);
+    return 'Windows ' + (map[w.nt] || w.nt);
   }
   if(name) return name + (pv ? ' ' + pv : '');
   if(/Android/.test(ua)) return 'Android';
@@ -355,6 +398,7 @@ function osName(){
 
 function renderDevice(){
   const n = navigator, ua = n.userAgent;
+  const b = browserInfo(), w = winInfo(), fr = freshness(b);
   const isMobile = n.userAgentData ? n.userAgentData.mobile : /Mobi|Android|iPhone/i.test(ua);
   const c = n.connection || n.mozConnection || n.webkitConnection;
   fill($('dev'), [
@@ -369,7 +413,9 @@ function renderDevice(){
     [t('dpr'), window.devicePixelRatio],
     [t('win'), innerWidth + '×' + innerHeight],
     [t('touch'), n.maxTouchPoints ? t('touchYes') + ' ' + n.maxTouchPoints : t('no')],
-    [t('browser'), browserName(ua) + (hi.uaFullVersion ? ' ' + hi.uaFullVersion : '')],
+    [t('browser'), b.name + ' ' + (hi.uaFullVersion || b.v || '')],
+    [t('bAge'), fr ? t(fr) : ''],
+    [t('check'), w ? (w.mismatch ? t('badc') : t('okc')) : ''],
     [t('lang'), n.languages ? n.languages.join(', ') : n.language],
     [t('dtz'), Intl.DateTimeFormat().resolvedOptions().timeZone],
     [t('conn'), c && c.effectiveType],
@@ -414,6 +460,143 @@ if (!window.__blocked) {
   loadNet();
   loadDevice();
 }
+</script>
+<script nomodule>
+/* Упрощённый режим для Internet Explorer 4+ и других старых браузеров (ES3, без fetch и классов) */
+(function(){
+  var ua = navigator.userAgent || '';
+  var lng = navigator.language || navigator.userLanguage || navigator.browserLanguage || '';
+  var ru = /^ru/i.test(lng);
+  function $(id){ return document.getElementById ? document.getElementById(id) : document.all[id]; }
+  function T(a, b){ return ru ? a : b; }
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function html(id, h){ var e = $(id); if (e) e.innerHTML = h; }
+  function show(id, d){ var e = $(id); if (e) e.style.display = d; }
+
+  var LD = {
+    title:['Мой IP, провайдер и устройство','My IP, provider and device'],
+    sub:['Упрощённый режим для старого браузера.','Simplified mode for an old browser.'],
+    yourIp:['Ваш внешний IP-адрес','Your public IP address'],
+    netH:['Сеть и провайдер','Network and provider'],
+    devH:['Ваше устройство','Your device'],
+    blockedTitle:['Доступ закрыт','Access denied'],
+    blockedText:['Эта страница не поддерживает Windows XP и Windows Vista. Эти системы давно не получают обновлений безопасности. Откройте сайт на Windows 10 и новее, macOS, Linux, Android или iOS.',
+                 'This page does not support Windows XP or Windows Vista. These systems no longer receive security updates. Please open it on Windows 10 or newer, macOS, Linux, Android or iOS.'],
+    w7Notice:['Скоро поддержка Windows 7 на этом сайте будет прекращена.','Support for Windows 7 on this site will end soon.'],
+    w7More:['Подробнее','Learn more'],
+    w7Title:['Поддержка Windows 7 заканчивается','Windows 7 support is ending'],
+    w7Text:['Скоро зайти на сайт с Windows 7 будет невозможно: он будет закрываться так же, как сейчас в Windows XP и Vista. Windows 7 давно не получает обновлений безопасности. Чтобы не потерять доступ, перейдите на Windows 10 или новее, macOS, Linux, Android или iOS.',
+            'Soon it will no longer be possible to open this site from Windows 7: access will be blocked just as it is now for Windows XP and Vista. Windows 7 stopped receiving security updates long ago. To keep your access, switch to Windows 10 or newer, macOS, Linux, Android or iOS.'],
+    close:['Закрыть','Close']
+  };
+
+  var all = document.all || document.getElementsByTagName('*');
+  var i, el, k;
+  for (i = 0; i < all.length; i++) {
+    el = all[i];
+    k = el.getAttribute ? el.getAttribute('data-i18n') : null;
+    if (k && LD[k]) el.innerHTML = LD[k][ru ? 0 : 1];
+  }
+  show('bar', 'none');
+  show('actions', 'none');
+
+  if (window.__blocked) {
+    show('app', 'none');
+    show('blocked', 'block');
+    return;
+  }
+  if (window.__win7) {
+    show('w7box', 'block');
+    $('w7more').onclick = function(){ show('w7modal', 'block'); return false; };
+    $('w7close').onclick = function(){ show('w7modal', 'none'); return false; };
+  }
+
+  function ieVer(){
+    var t = ua.match(/Trident\/(\d+)/), m = ua.match(/MSIE (\d+)/);
+    if (t) return parseInt(t[1], 10) + 4;
+    if (m) return parseInt(m[1], 10);
+    return 0;
+  }
+  function osName(){
+    var m = ua.match(/Windows NT (\d+\.\d+)/);
+    if (m) {
+      var map = {'4.0':'NT 4.0','5.0':'2000','5.1':'XP','5.2':'XP / Server 2003','6.0':'Vista','6.1':'7','6.2':'8','6.3':'8.1','10.0':'10 / 11'};
+      return 'Windows ' + (map[m[1]] || m[1]);
+    }
+    if (/Win 9x 4\.90/.test(ua)) return 'Windows Me';
+    if (/Win(dows )?98/.test(ua)) return 'Windows 98';
+    if (/Win(dows )?95/.test(ua)) return 'Windows 95';
+    if (/Windows CE/.test(ua)) return 'Windows CE';
+    if (/Android/.test(ua)) return 'Android';
+    if (/iPhone|iPad|iPod/.test(ua)) return 'iOS';
+    if (/Mac/.test(ua)) return 'macOS';
+    if (/Linux/.test(ua)) return 'Linux';
+    return navigator.platform || '?';
+  }
+  function browser(){
+    var v = ieVer(), m, names = ['Firefox','OPR','Edge','Chrome','Safari'], j;
+    if (v) {
+      m = ua.match(/MSIE (\d+)/);
+      return 'Internet Explorer ' + v + (m && ua.indexOf('Trident') >= 0 && parseInt(m[1], 10) !== v ? T(' (режим совместимости ', ' (compatibility mode ') + m[1] + ')' : '');
+    }
+    for (j = 0; j < names.length; j++) {
+      m = ua.match(new RegExp(names[j] + '/(\\d+)'));
+      if (m) return (names[j] === 'OPR' ? 'Opera' : names[j]) + ' ' + m[1];
+    }
+    return '?';
+  }
+  function rows(a){
+    var h = '', j;
+    for (j = 0; j < a.length; j++) {
+      if (a[j][1] !== '' && a[j][1] != null) h += '<dt>' + esc(a[j][0]) + '</dt><dd>' + esc(a[j][1]) + '</dd>';
+    }
+    return h;
+  }
+
+  html('dev', rows([
+    [T('Операционная система','Operating system'), osName()],
+    [T('Браузер','Browser'), browser()],
+    [T('Возраст браузера','Browser age'), T('старый','old')],
+    [T('Экран','Screen'), screen.width + ' x ' + screen.height + (screen.colorDepth ? ', ' + screen.colorDepth + ' bit' : '')],
+    [T('Язык','Language'), lng],
+    ['Cookies', navigator.cookieEnabled ? T('включены','enabled') : T('выключены','disabled')],
+    ['User-Agent', ua]
+  ]));
+
+  var got = false;
+  html('ip', esc(T('определяю…','detecting…')));
+  function showNet(d){
+    got = true;
+    html('ip', esc(d.ip));
+    html('isp', esc(d.isp || T('Провайдер не определён','Provider not detected')));
+    html('net', rows([
+      [T('IP-адрес','IP address'), d.ip],
+      [T('Версия','Version'), String(d.ip).indexOf(':') >= 0 ? 'IPv6' : 'IPv4'],
+      [T('Провайдер','Provider'), d.isp],
+      ['ASN', d.asn],
+      [T('Страна','Country'), d.country],
+      [T('Регион','Region'), d.region],
+      [T('Город','City'), d.city],
+      [T('Часовой пояс сети','Network time zone'), d.tz]
+    ]));
+  }
+  /* JSONP: работает без XMLHttpRequest, подходит даже для очень старых браузеров */
+  window.__ipapi = function(j){
+    if (!j || j.error || !j.ip) return;
+    showNet({ip:j.ip, isp:j.org, asn:j.asn, country:j.country_name, region:j.region, city:j.city, tz:j.timezone});
+  };
+  window.__ipify = function(j){
+    if (got || !j || !j.ip) return;
+    showNet({ip:j.ip});
+  };
+  document.write('<scr' + 'ipt src="https://ipapi.co/jsonp/?callback=__ipapi"></scr' + 'ipt>');
+  document.write('<scr' + 'ipt src="https://api.ipify.org?format=jsonp&callback=__ipify"></scr' + 'ipt>');
+  setTimeout(function(){
+    if (got) return;
+    html('ip', '<span class="err">' + esc(T('Не удалось определить','Could not detect')) + '</span>');
+    html('isp', esc(T('Старый браузер может не поддерживать защищённые соединения (TLS 1.2). Откройте страницу в современном браузере.','An old browser may not support secure connections (TLS 1.2). Try a modern browser.')));
+  }, 10000);
+})();
 </script>
 </body>
 </html>
